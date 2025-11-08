@@ -1,0 +1,25 @@
+{
+  "extends": "@tsconfig/node22/tsconfig.json",
+  "include": [
+    "vite.config.*",
+    "vitest.config.*",
+    "cypress.config.*",
+    "nightwatch.conf.*",
+    "playwright.config.*",
+    "eslint.config.*",
+    "src/**/*.node.ts" // 可选：若有Node专用脚本，显式包含
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.vue" // 排除Vue组件（Node环境不处理前端组件）
+  ],
+  "compilerOptions": {
+    "noEmit": true, // 工具链配置无需输出编译产物
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "module": "ESNext", // 支持最新ES模块语法
+    "moduleResolution": "Bundler", // 与Vite等构建工具的模块解析一致
+    "types": ["node", "vite/client"], // 补充Vite客户端类型（若用Vite）
+    "resolveJsonModule": true, // 允许导入JSON文件（工具配置常需）
+    "isolatedModules": true // 确保每个文件都是独立模块（避免工具链解析问题）
+  }
+}
