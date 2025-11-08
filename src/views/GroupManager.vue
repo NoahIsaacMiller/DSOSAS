@@ -97,8 +97,16 @@ const openAssociateModal = (group: any) => {
 // 确认关联
 const confirmAssociate = async () => {
   if (!currentGroup.value || selectedSatIds.value.length === 0) return
-  await groupStore.associateSatellites(currentGroup.value.id, selectedSatIds.value)
-  modalOpen.value = false
+  
+  try {
+    await groupStore.associateSatellites(currentGroup.value.id, selectedSatIds.value)
+    modalOpen.value = false
+    // 重新加载分组列表以更新关联卫星数量
+    await fetchGroups()
+  } catch (error) {
+    console.error('关联卫星失败:', error)
+    alert('关联卫星失败，请稍后重试')
+  }
 }
 
 // 初始化

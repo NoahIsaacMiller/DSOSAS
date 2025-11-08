@@ -80,15 +80,4 @@ export interface GroupSatelliteResponse {
     associatedCount: number; // 成功关联/解绑的卫星数量
 }
 
-export interface GroupQueryParams {
-    keyword?: string; // 可选查询参数，根据实际需求扩展
-}
-
-export interface GroupListResponse {
-    list: Group[]; // 分组数组
-    total: number; // 总数（可选，根据接口返回调整）
-}
-
-export interface AssociateSatelliteParams {
-    satelliteIds: number[]; // 关联的卫星ID数组
-}
+// 注意：GroupQueryParams、GroupListResponse 和 AssociateSatelliteParams 已在上方定义，请勿重复

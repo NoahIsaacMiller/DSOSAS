@@ -1,4 +1,4 @@
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 import * as Cesium from 'cesium';
 
 /**
@@ -10,9 +10,12 @@ import * as Cesium from 'cesium';
  */
 export const useTrackManagement = (
     positionProperty: Cesium.SampledPositionProperty | null,
-    duration = 3600,
-    interval = 10
+    initialDuration = 3600,
+    initialInterval = 10
 ) => {
+    // 使用响应式变量存储配置
+    let duration = initialDuration;
+    let interval = initialInterval;
     // 轨迹点列表（按时间排序）
     const trackPoints = ref<{ position: Cesium.Cartesian3; time: Cesium.JulianDate }[]>([]);
     // 轨迹实体（Cesium 线实体）
@@ -20,7 +23,9 @@ export const useTrackManagement = (
     // 是否显示轨迹
     const isTrackVisible = ref(true);
     // 轨迹颜色
-    const trackColor = ref<Cesium.Color>(Cesium.Color.fromCssColorString('#00ffff'));
+    const trackColor = ref<Cesium.Property>(new Cesium.ConstantProperty(Cesium.Color.fromCssColorString('#00ffff')));
+    // 采样定时器引用（用于防止内存泄漏）
+    const sampleTimerRef = ref<number | null>(null);
 
     // 初始化轨迹实体
     const initTrackEntity = () => {
@@ -28,7 +33,7 @@ export const useTrackManagement = (
 
         trackEntity.value = new Cesium.Entity({
             polyline: {
-                positions: new Cesium.ConstantPositionProperty([]),
+                positions: new Cesium.ConstantProperty([]),
                 width: 2,
                 material: new Cesium.PolylineGlowMaterialProperty({
                     glowPower: 0.3,
@@ -56,30 +61,43 @@ export const useTrackManagement = (
         );
 
         // 更新轨迹实体的位置列表
-        if (trackEntity.value) {
-            const positions = trackPoints.value.map(point => point.position);
-            (trackEntity.value.polyline as Cesium.PolylineGraphics).positions =
-                new Cesium.ConstantPositionProperty(positions);
+        if (trackEntity.value && trackEntity.value.polyline) {
+            try {
+                const positions = trackPoints.value.map(point => point.position);
+                (trackEntity.value.polyline as Cesium.PolylineGraphics).positions =
+                    new Cesium.ConstantProperty(positions);
+            } catch (error) {
+                console.warn('Failed to update track positions:', error);
+            }
         }
     };
 
     // 清空轨迹
     const clearTrack = () => {
         trackPoints.value = [];
-        if (trackEntity.value) {
-            (trackEntity.value.polyline as Cesium.PolylineGraphics).positions =
-                new Cesium.ConstantPositionProperty([]);
+        if (trackEntity.value && trackEntity.value.polyline) {
+            try {
+                (trackEntity.value.polyline as Cesium.PolylineGraphics).positions =
+                    new Cesium.ConstantProperty([]);
+            } catch (error) {
+                console.warn('Failed to clear track positions:', error);
+            }
         }
     };
 
     // 监听位置属性变化，初始化轨迹
     watch(() => positionProperty, (newProp) => {
+        // 清理旧的定时器，防止内存泄漏
+        if (sampleTimerRef.value) {
+            clearInterval(sampleTimerRef.value);
+            sampleTimerRef.value = null;
+        }
+
         if (newProp) {
             initTrackEntity();
             // 初始添加一个点 + 定时采样
             addTrackPoint();
-            const sampleTimer = setInterval(addTrackPoint, interval * 1000);
-            onUnmounted(() => clearInterval(sampleTimer));
+            sampleTimerRef.value = window.setInterval(addTrackPoint, interval * 1000);
         } else {
             clearTrack();
         }
@@ -95,19 +113,67 @@ export const useTrackManagement = (
     // 监听颜色变化
     watch(trackColor, (color) => {
         if (trackEntity.value) {
-            ((trackEntity.value.polyline as Cesium.PolylineGraphics).material as Cesium.PolylineGlowMaterialProperty).color = color;
+            const material = (trackEntity.value.polyline as Cesium.PolylineGraphics).material as Cesium.PolylineGlowMaterialProperty;
+            if (material) {
+                material.color = color;
+            }
         }
     });
 
-    // 销毁时清理轨迹实体
+    // 销毁时清理轨迹实体和定时器
     onUnmounted(() => {
-        if (trackEntity.value && trackEntity.value.polyline) {
-            ((trackEntity.value.polyline as Cesium.PolylineGraphics).material as Cesium.PolylineGlowMaterialProperty).destroy();
+        // 清理定时器
+        if (sampleTimerRef.value) {
+            clearInterval(sampleTimerRef.value);
+            sampleTimerRef.value = null;
         }
+
+        // 清理 Cesium 资源
+        // 注意：Cesium 中并非所有对象都有 destroy 方法，根据实际情况处理
         if (trackEntity.value) {
-            trackEntity.value.destroy();
+            // 移除实体但不调用 destroy 方法，避免类型错误
+            trackEntity.value.show = false;
+            // 如果实体已添加到数据提供者，应该从那里移除
         }
+
+        // 清空轨迹点数组
+        trackPoints.value = [];
     });
+
+    // 修改轨迹保留时长
+    const setTrackDuration = (newDuration: number) => {
+        if (newDuration > 0) {
+            duration = newDuration;
+            // 立即应用新的时长，移除过期点
+            const now = Cesium.JulianDate.now();
+            const expireTime = Cesium.JulianDate.addSeconds(now, -duration, new Cesium.JulianDate());
+            trackPoints.value = trackPoints.value.filter(point =>
+                Cesium.JulianDate.compare(point.time, expireTime) >= 0
+            );
+            // 更新轨迹显示
+            if (trackEntity.value && trackEntity.value.polyline) {
+                try {
+                    const positions = trackPoints.value.map(point => point.position);
+                    (trackEntity.value.polyline as Cesium.PolylineGraphics).positions =
+                        new Cesium.ConstantProperty(positions);
+                } catch (error) {
+                    console.warn('Failed to update track after duration change:', error);
+                }
+            }
+        }
+    };
+
+    // 修改采样间隔
+    const setTrackInterval = (newInterval: number) => {
+        if (newInterval > 0 && positionProperty) {
+            interval = newInterval;
+            // 重新设置定时器以应用新的间隔
+            if (sampleTimerRef.value) {
+                clearInterval(sampleTimerRef.value);
+            }
+            sampleTimerRef.value = window.setInterval(addTrackPoint, interval * 1000);
+        }
+    };
 
     return {
         trackPoints,
@@ -116,7 +182,7 @@ export const useTrackManagement = (
         trackColor,
         clearTrack,
         addTrackPoint, // 手动添加轨迹点
-        setTrackDuration: (newDuration: number) => duration = newDuration, // 修改轨迹保留时长
-        setTrackInterval: (newInterval: number) => interval = newInterval // 修改采样间隔
+        setTrackDuration, // 修改轨迹保留时长
+        setTrackInterval // 修改采样间隔
     };
 };
