@@ -15,7 +15,7 @@ import type { SatelliteBase } from '@/types/core';
  * @param params 查询参数
  */
 export const getSatelliteList = (params: SatelliteQueryParams) => {
-    return request.get<AxiosResponse<SatelliteListResponse>>('/satellites', { params });
+    return request.get<SatelliteListResponse>('/satellites', { params });
 };
 
 
@@ -24,7 +24,7 @@ export const getSatelliteList = (params: SatelliteQueryParams) => {
  * @param id 卫星ID
  */
 export const getSatelliteDetail = (id: number) => {
-    return request.get<AxiosResponse<SatelliteDetailResponse>>(`/satellites/${id}`);
+    return request.get<SatelliteDetailResponse>(`/satellites/${id}`);
 };
 /**
  * 新增卫星

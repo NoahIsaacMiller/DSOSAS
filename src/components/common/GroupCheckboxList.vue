@@ -39,7 +39,8 @@ const groupList = computed(() => groupStore.groupList)
 watch(
   () => groupStore.visibleGroupIds,
   (newIds) => {
-    checkedGroupIds.value = newIds
+    // 将Set转换为数组
+    checkedGroupIds.value = Array.from(newIds)
   },
   { immediate: true, deep: true },
 )
@@ -48,7 +49,14 @@ watch(
 watch(
   checkedGroupIds,
   (newIds) => {
-    groupStore.setGroupVisibility(newIds)
+    // 先清除所有可见性
+    groupStore.groupList.forEach(group => {
+      groupStore.toggleGroupVisibility(group.id, false)
+    })
+    // 然后设置新的可见分组
+    newIds.forEach(groupId => {
+      groupStore.toggleGroupVisibility(groupId, true)
+    })
     emit('update:checkedGroupIds', newIds)
   },
   { deep: true },

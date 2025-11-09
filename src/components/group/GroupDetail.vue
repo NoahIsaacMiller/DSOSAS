@@ -39,7 +39,7 @@
                 <el-button
                   size="small"
                   type="danger"
-                  @click="removeSatellite(scope.row.baseData.id)"
+                  @click="handleRemoveSatellite(scope.row.baseData.id)"
                 >
                   移除
                 </el-button>
@@ -109,8 +109,9 @@ const handleSearch = () => {
 }
 
 // 移除卫星
-const removeSatellite = (satelliteId: number) => {
-  groupStore.removeSatelliteFromGroup(props.group.id, satelliteId)
+const handleRemoveSatellite = (satelliteId: number) => {
+  // 注意：groupStore中没有removeSatelliteFromGroup方法
+  console.warn('从分组中移除卫星功能尚未实现')
 }
 
 // 打开卫星选择器

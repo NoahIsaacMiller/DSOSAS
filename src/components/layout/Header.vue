@@ -7,22 +7,38 @@
 
     <!-- 全局搜索 -->
     <div class="search-box">
-      <input
-        type="text"
-        placeholder="搜索卫星/分组..."
+      <el-input
         v-model="searchKeyword"
+        placeholder="搜索卫星/分组..."
+        clearable
+        prefix-icon="Search"
         @keyup.enter="handleSearch"
+        style="width: 280px"
       />
-      <button @click="handleSearch">搜索</button>
+      <el-button type="primary" @click="handleSearch">
+        <el-icon><Search /></el-icon> 搜索
+      </el-button>
     </div>
 
     <!-- 右侧操作区 -->
     <div class="header-actions">
-      <button class="config-btn">系统配置</button>
-      <div class="user-info">
-        <img src="https://picsum.photos/id/1005/40/40" alt="用户头像" class="avatar" />
-        <span>管理员</span>
-      </div>
+      <el-button type="default" @click="handleConfig">
+        <el-icon><Setting /></el-icon> 系统配置
+      </el-button>
+      <el-dropdown trigger="click">
+        <div class="user-info cursor-pointer">
+          <img src="https://picsum.photos/id/1005/40/40" alt="用户头像" class="avatar" />
+          <span>管理员</span>
+          <el-icon class="el-icon--right"><arrow-down /></el-icon>
+        </div>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item>个人中心</el-dropdown-item>
+            <el-dropdown-item>修改密码</el-dropdown-item>
+            <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
   </div>
 </template>
@@ -30,6 +46,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useSatelliteStore } from '@/stores/satelliteStore'
+import { Search, Setting, ArrowDown } from '@element-plus/icons-vue'
+import { ElMessageBox, ElMessage } from 'element-plus'
 
 const searchKeyword = ref('')
 const satelliteStore = useSatelliteStore()
@@ -47,6 +65,29 @@ const handleSearch = () => {
     size: 20,
     keyword: searchKeyword.value.trim(),
   })
+}
+
+// 处理系统配置
+const handleConfig = () => {
+  ElMessage.info('系统配置功能开发中')
+}
+
+// 处理退出登录
+const handleLogout = () => {
+  ElMessageBox.confirm('确定要退出登录吗？', '退出确认', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  })
+    .then(() => {
+      // 清除token
+      localStorage.removeItem('token')
+      // 跳转到登录页（如果有）
+      ElMessage.success('退出成功')
+    })
+    .catch(() => {
+      // 取消退出
+    })
 }
 </script>
 
@@ -69,28 +110,7 @@ const handleSearch = () => {
 .search-box {
   display: flex;
   gap: 8px;
-  width: 360px;
-}
-
-.search-box input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  outline: none;
-}
-
-.search-box input:focus {
-  border-color: #42b983;
-}
-
-.search-box button {
-  padding: 0 16px;
-  background-color: #42b983;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  align-items: center;
 }
 
 .header-actions {
@@ -99,11 +119,7 @@ const handleSearch = () => {
   gap: 20px;
 }
 
-.config-btn {
-  background: transparent;
-  border: 1px solid #ddd;
-  padding: 6px 12px;
-  border-radius: 4px;
+.cursor-pointer {
   cursor: pointer;
 }
 

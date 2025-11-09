@@ -110,7 +110,8 @@ const handleSearch = () => {
 
 // 移除卫星
 const removeSatellite = (satelliteId: number) => {
-  groupStore.removeSatelliteFromGroup(props.group.id, satelliteId)
+  // 注意：groupStore中没有removeSatelliteFromGroup方法
+  console.warn('从分组中移除卫星功能尚未实现')
 }
 
 // 打开卫星选择器
@@ -118,7 +119,8 @@ const openSatelliteSelector = () => {
   SatelliteSelector.new({
     groupId: props.group.id,
     onConfirm: (selectedSatellites: any[]) => {
-      groupStore.addSatellitesToGroup(props.group.id, selectedSatellites)
+      // 使用现有的associateSatellites方法
+      groupStore.associateSatellites(props.group.id, selectedSatellites)
     },
   })
 }

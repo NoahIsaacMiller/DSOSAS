@@ -3,10 +3,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, inject, watch } from 'vue'
+import { onMounted, onUnmounted, ref, inject, watch, type Ref } from 'vue'
 import * as Cesium from 'cesium'
 import { useSatelliteStore } from '@/stores/satelliteStore'
 import { useGroupStore } from '@/stores/groupStore'
+import { SimplifiedOrbitPropagator } from '@/hooks/satellitePosition'
 
 // 注入 Cesium 实例
 const viewerRef = inject<Ref<Cesium.Viewer | null>>('cesiumViewer')
@@ -18,50 +19,82 @@ const satelliteEntities = ref<Record<number, Cesium.Entity>>({})
 
 // 从 TLE 数据创建卫星实体
 const createSatelliteEntity = (satellite: any) => {
-  if (!viewerRef.value || !satellite.tle1 || !satellite.tle2) return
+  if (!viewerRef) return
+  const viewer = viewerRef.value
+  if (!viewer || !satellite.tle1 || !satellite.tle2) return
 
-  // 解析 TLE 数据
-  const tleData = {
-    tle1: satellite.tle1,
-    tle2: satellite.tle2,
-    name: satellite.name,
+  try {
+    // 创建卫星点实体
+    const entity = viewer.entities.add({
+      id: `satellite_${satellite.id}`,
+      name: satellite.name,
+      // 位置将在下方设置
+      point: {
+        pixelSize: 6,
+        color: Cesium.Color.fromCssColorString('#42b983'),
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 1,
+        show: true,
+      },
+      label: {
+          text: satellite.name,
+          font: '12px sans-serif',
+          // 使用不同的属性名设置颜色
+          fillColor: Cesium.Color.WHITE,
+          pixelOffset: new Cesium.Cartesian2(0, 10),
+          show: true,
+        },
+        // 存储原始数据
+        properties: {
+          satelliteData: satellite
+        },
+    })
+
+    // 使用TLE数据创建采样位置属性
+    const sampledPositionProperty = new Cesium.SampledPositionProperty()
+    
+    // 创建轨道传播器
+    const propagator = new SimplifiedOrbitPropagator(satellite.tle1, satellite.tle2)
+    
+    // 添加采样点（未来24小时，每5分钟一个点）
+    const startTime = Cesium.JulianDate.now()
+    const endTime = Cesium.JulianDate.addDays(startTime, 1, new Cesium.JulianDate())
+    
+    let currentTime = Cesium.JulianDate.clone(startTime)
+    while (Cesium.JulianDate.compare(currentTime, endTime) < 0) {
+      // 计算相对于起始时间的秒数
+      const timeInSeconds = Cesium.JulianDate.secondsDifference(currentTime, startTime)
+      
+      // 使用轨道传播器计算位置
+      const position = propagator.calculatePosition(timeInSeconds)
+      
+      // 添加采样点
+      sampledPositionProperty.addSample(currentTime, position)
+      
+      // 前进5分钟
+      Cesium.JulianDate.addMinutes(currentTime, 5, currentTime)
+    }
+    
+    // 设置实体位置和朝向
+    entity.position = sampledPositionProperty
+    entity.orientation = new Cesium.VelocityOrientationProperty(sampledPositionProperty)
+
+    satelliteEntities.value[Number(satellite.id)] = entity
+  } catch (error) {
+    console.error(`创建卫星实体失败 (ID: ${satellite.id}):`, error)
   }
-
-  // 创建卫星点实体
-  const entity = viewerRef.value.entities.add({
-    id: `satellite_${satellite.id}`,
-    name: satellite.name,
-    position: Cesium.Cartesian3.fromDegrees(0, 0), // 初始位置，后续通过 TLE 更新
-    point: {
-      pixelSize: 6,
-      color: Cesium.Color.fromCssColorString('#42b983'),
-      outlineColor: Cesium.Color.WHITE,
-      outlineWidth: 1,
-      show: true,
-    },
-    label: {
-      text: satellite.name,
-      font: '12px sans-serif',
-      color: Cesium.Color.WHITE,
-      pixelOffset: new Cesium.Cartesian2(0, 10),
-      show: true,
-    },
-  })
-
-  // 使用 TLE 驱动卫星位置更新
-  const satellitePositionProperty = new Cesium.SatellitePositionProperty(tleData)
-  entity.position = satellitePositionProperty
-  entity.orientation = new Cesium.VelocityOrientationProperty(satellitePositionProperty)
-
-  satelliteEntities.value[satellite.id] = entity
 }
 
 // 移除卫星实体
-const removeSatelliteEntity = (satelliteId: number) => {
-  if (!viewerRef.value || !satelliteEntities.value[satelliteId]) return
+const removeSatelliteEntity = (satelliteId: number | string) => {
+  if (!viewerRef) return
+  const viewer = viewerRef.value
+  const id = Number(satelliteId)
+  const entity = satelliteEntities.value[id]
+  if (!viewer || !entity) return
 
-  viewerRef.value.entities.remove(satelliteEntities.value[satelliteId])
-  delete satelliteEntities.value[satelliteId]
+  viewer.entities.remove(entity)
+  delete satelliteEntities.value[id]
 }
 
 // 更新卫星显示状态（基于卫星自身可见性和分组可见性）

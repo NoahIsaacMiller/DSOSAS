@@ -21,7 +21,7 @@ export const useSatelliteVisibility = (satelliteId: number, initialVisible = tru
         if (satelliteGroupIds.value.length === 0) return true; // 无分组时默认显示
 
         const visibleGroups = groupStore.visibleGroupIds;
-        return satelliteGroupIds.value.some(groupId => visibleGroups.includes(groupId));
+        return satelliteGroupIds.value.some(groupId => visibleGroups.has(groupId));
     });
 
     // 切换卫星自身显示状态
@@ -55,30 +55,22 @@ export const useGroupVisibility = () => {
         return new Map(
             groupStore.groupList.map(group => [
                 group.id,
-                visibleGroups.includes(group.id)
+                visibleGroups.has(group.id)
             ])
         );
     });
 
     // 切换单个分组显示状态
     const toggleGroupVisible = (groupId: number) => {
-        const currentVisible = groupStore.visibleGroupIds.includes(groupId);
-        if (currentVisible) {
-            groupStore.setGroupVisibility(
-                groupStore.visibleGroupIds.filter(id => id !== groupId)
-            );
-        } else {
-            groupStore.setGroupVisibility([...groupStore.visibleGroupIds, groupId]);
-        }
+        const currentVisible = groupStore.visibleGroupIds.has(groupId);
+        groupStore.toggleGroupVisibility(groupId, !currentVisible);
     };
 
     // 全选/取消全选
     const toggleAllGroups = (selectAll: boolean) => {
-        if (selectAll) {
-            groupStore.toggleGroupVisibility(groupStore.groupList.map(group => group.id));
-        } else {
-            groupStore.toggleGroupVisibility(groupStore.groupList.map(group => group.id), false);
-        }
+        groupStore.groupList.forEach(group => {
+            groupStore.toggleGroupVisibility(group.id, selectAll);
+        });
     };
 
     // 批量设置分组显示状态

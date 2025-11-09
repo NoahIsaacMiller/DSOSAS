@@ -1,7 +1,8 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
+import type { RouteRecordRaw } from 'vue-router';
 import MainLayout from '@/layout/MainLayout.vue';
 import SatelliteList from '@/components/satellite/SatelliteList.vue';
-import GroupList from '@/components/group/GroupList.vue';
+import GroupList from '@/components/common/GroupList.vue';
 import SceneView from '@/views/SceneView.vue';
 import NotFound from '@/views/NotFound.vue';
 

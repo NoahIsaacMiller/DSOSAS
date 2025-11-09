@@ -41,7 +41,7 @@
         class="control-btn"
         @click="focusSelectedSatellite"
         title="定位选中卫星"
-        :disabled="!selectedSatelliteId"
+        :disabled="!selectedSatellite"
       >
         <svg
           width="20"
@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, watch, onUnmounted } from 'vue'
+import { ref, inject, watch, onUnmounted, type Ref } from 'vue'
 import * as Cesium from 'cesium'
 import { useSatelliteStore } from '@/stores/satelliteStore'
 
@@ -70,14 +70,16 @@ const satelliteStore = useSatelliteStore()
 
 // 控制状态
 const isRotating = ref(false)
-const selectedSatelliteId = ref<number | null>(null)
+const selectedSatellite = ref<number | null>(null)
 let rotationTimer: number | null = null
 
 // 重置视角到地球全局
 const resetView = () => {
-  if (!viewerRef.value) return
+  if (!viewerRef) return
+  const viewer = viewerRef.value
+  if (!viewer) return
 
-  viewerRef.value.camera.flyTo({
+  viewer.camera.flyTo({
     destination: Cesium.Cartesian3.fromDegrees(105, 30, 15000000),
     orientation: {
       heading: Cesium.Math.toRadians(0),
@@ -90,7 +92,9 @@ const resetView = () => {
 
 // 切换场景自动旋转
 const toggleRotation = () => {
-  if (!viewerRef.value) return
+  if (!viewerRef) return
+  const viewer = viewerRef.value
+  if (!viewer) return
 
   isRotating.value = !isRotating.value
   if (isRotating.value) {
@@ -102,12 +106,17 @@ const toggleRotation = () => {
 
 // 开始场景旋转
 const startRotation = () => {
-  if (!viewerRef.value) return
+  if (!viewerRef) return
+  const viewer = viewerRef.value
+  if (!viewer) return
 
   stopRotation() // 确保先停止已有旋转
   rotationTimer = window.setInterval(() => {
-    if (viewerRef.value) {
-      viewerRef.value.scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, Cesium.Math.toRadians(0.1))
+    if (viewerRef) {
+      const currentViewer = viewerRef.value
+      if (currentViewer) {
+        currentViewer.scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, Cesium.Math.toRadians(0.1))
+      }
     }
   }, 20)
 }
@@ -122,27 +131,36 @@ const stopRotation = () => {
 
 // 聚焦选中的卫星
 const focusSelectedSatellite = () => {
-  if (!viewerRef.value || !selectedSatelliteId.value) return
+  if (!viewerRef) return
+  const viewer = viewerRef.value
+  if (!viewer || !selectedSatellite.value) return
 
-  const satelliteEntity = viewerRef.value.entities.getById(`satellite_${selectedSatelliteId.value}`)
+  const satelliteEntity = viewer.entities.getById(`satellite_${selectedSatellite.value}`)
   if (satelliteEntity && satelliteEntity.position) {
-    viewerRef.value.camera.flyTo({
-      destination: satelliteEntity.position,
-      orientation: {
-        heading: Cesium.Math.toRadians(0),
-        pitch: Cesium.Math.toRadians(-20),
-        roll: 0,
-      },
-      duration: 1.5,
-    })
+    // 使用当前时间获取卫星位置
+    const currentTime = Cesium.JulianDate.now()
+    const position = satelliteEntity.position.getValue(currentTime) as Cesium.Cartesian3
+    
+    if (position) {
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(105, 30, 15000000), // 使用默认位置作为后备
+        orientation: {
+          heading: Cesium.Math.toRadians(0),
+          pitch: Cesium.Math.toRadians(-20),
+          roll: 0,
+        },
+        duration: 1.5,
+      })
+    }
   }
 }
 
 // 监听选中卫星变化
 watch(
-  () => satelliteStore.selectedSatelliteId,
-  (newId) => {
-    selectedSatelliteId.value = newId
+  () => satelliteStore.selectedSatellite,
+  (newSatellite) => {
+    // 确保我们存储的是ID而不是整个卫星对象
+    selectedSatellite.value = newSatellite ? typeof newSatellite === 'number' ? newSatellite : newSatellite.baseData?.id || null : null
   },
 )
 

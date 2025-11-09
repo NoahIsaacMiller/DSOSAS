@@ -106,11 +106,15 @@ const openDetail = (group: any) => {
 
 // 删除分组
 const handleDelete = (groupId: number) => {
-  groupStore.deleteGroup(groupId)
+  if (confirm('确定要删除该分组吗？')) {
+    // 注意：groupStore中没有deleteGroup方法
+    console.warn('删除分组功能尚未实现')
+  }
 }
 
 // 高亮分组（在3D场景中突出显示）
 const handleHighlight = (groupId: number) => {
-  groupStore.setHighlightGroupId(groupId)
+  // 注意：groupStore中没有setHighlightGroupId方法
+  console.warn('高亮分组功能尚未实现')
 }
 </script>

@@ -196,12 +196,13 @@ const openDetail = (satellite: any) => {
 
 // 删除卫星
 const handleDelete = (satelliteId: number) => {
-  satelliteStore.deleteSatellite(satelliteId)
+  // 注意：satelliteStore中没有deleteSatellite方法
+  console.warn('删除卫星功能尚未实现')
 }
 
 // 切换卫星显示状态
 const handleToggleVisible = (satelliteId: number, isVisible: boolean) => {
-  satelliteStore.toggleSatelliteVisible(satelliteId, isVisible)
+  satelliteStore.toggleSatelliteVisibility(satelliteId, isVisible)
 }
 </script>
 
